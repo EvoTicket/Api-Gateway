@@ -18,13 +18,27 @@ spring:
           filters:
             - StripPrefix=1
 
-        - id: product-service
-          uri: lb://product-service
+        - id: iam-service-swagger
+          uri: lb://iam-service
           predicates:
-            - Path=/api/products/**
+            - Path=/iam-service/v3/api-docs/**
+          filters:
+            - RewritePath=/iam-service/v3/api-docs(?<segment>.*), /v3/api-docs${segment}
+        #######################################################################################
+        - id: inventory-service
+          uri: lb://inventory-service
+          predicates:
+            - Path=/inventory-service/**
           filters:
             - StripPrefix=1
 
+        - id: inventory-service-swagger
+          uri: lb://inventory-service
+          predicates:
+            - Path=/inventory-service/v3/api-docs/**
+          filters:
+            - RewritePath=/inventory-service/v3/api-docs(?<segment>.*), /v3/api-docs${segment}
+        #######################################################################################
         - id: order-service
           uri: lb://order-service
           predicates:
@@ -51,8 +65,8 @@ springdoc:
     urls:
       - name: IAM Service
         url: /iam-service/v3/api-docs
-#      - name: User Service
-#        url: /user-service/v3/api-docs
+      - name: Inventory Service
+        url: /inventory-service/v3/api-docs
 #      - name: Product Service
 #        url: /product-service/v3/api-docs
 #      - name: Order Service
