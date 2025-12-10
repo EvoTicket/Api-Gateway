@@ -53,13 +53,13 @@ spring:
             - RewritePath=/notification-service/v3/api-docs(?<segment>.*), /v3/api-docs${segment}
         #######################################################################################
         - id: order-service
-          uri: lb:// order-service
+          uri: lb://order-service
           predicates:
             - Path=/order-service/**
           filters:
             - StripPrefix=1
         - id:  order-service-swagger
-          uri: lb:// order-service
+          uri: lb://order-service
           predicates:
             - Path=/order-service/v3/api-docs/**
           filters:
