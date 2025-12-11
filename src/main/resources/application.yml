@@ -64,6 +64,19 @@ spring:
             - Path=/order-service/v3/api-docs/**
           filters:
             - RewritePath=/order-service/v3/api-docs(?<segment>.*), /v3/api-docs${segment}
+        #######################################################################################
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/payment-service/**
+          filters:
+            - StripPrefix=1
+        - id: payment-service-swagger
+          uri: lb://payment-service
+          predicates:
+            - Path=/payment-service/v3/api-docs/**
+          filters:
+            - RewritePath=/payment-service/v3/api-docs(?<segment>.*), /v3/api-docs${segment}
 
 eureka:
   client:
@@ -90,4 +103,6 @@ springdoc:
         url: /notification-service/v3/api-docs
       - name: Order Service
         url: /order-service/v3/api-docs
+      - name: Payment Service
+        url: /payment-service/v3/api-docs
     urls-primary-name: IAM Service
