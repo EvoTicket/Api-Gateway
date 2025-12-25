@@ -7,3 +7,81 @@ eureka:
   instance:
     prefer-ip-address: false
     hostname: ${GATEWAY_HOSTNAME}
+
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        - id: iam-service
+          uri: ${IAM_URI}
+          predicates:
+            - Path=/iam-service/**
+          filters:
+            - StripPrefix=1
+
+        - id: iam-service-swagger
+          uri: ${IAM_URI}
+          predicates:
+            - Path=/iam-service/v3/api-docs/**
+          filters:
+            - RewritePath=/iam-service/v3/api-docs(?<segment>.*), /v3/api-docs${segment}
+        #######################################################################################
+        - id: inventory-service
+          uri: lb://inventory-service
+          predicates:
+            - Path=/inventory-service/**
+          filters:
+            - StripPrefix=1
+
+        - id: inventory-service-swagger
+          uri: lb://inventory-service
+          predicates:
+            - Path=/inventory-service/v3/api-docs/**
+          filters:
+            - RewritePath=/inventory-service/v3/api-docs(?<segment>.*), /v3/api-docs${segment}
+        #######################################################################################
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/notification-service/**
+          filters:
+            - StripPrefix=1
+        - id: notification-service-swagger
+          uri: lb://notification-service
+          predicates:
+            - Path=/notification-service/v3/api-docs/**
+          filters:
+            - RewritePath=/notification-service/v3/api-docs(?<segment>.*), /v3/api-docs${segment}
+        #######################################################################################
+        - id: order-service
+          uri: lb://order-service
+          predicates:
+            - Path=/order-service/**
+          filters:
+            - StripPrefix=1
+        - id:  order-service-swagger
+          uri: lb://order-service
+          predicates:
+            - Path=/order-service/v3/api-docs/**
+          filters:
+            - RewritePath=/order-service/v3/api-docs(?<segment>.*), /v3/api-docs${segment}
+        #######################################################################################
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/payment-service/**
+          filters:
+            - StripPrefix=1
+        - id: payment-service-swagger
+          uri: lb://payment-service
+          predicates:
+            - Path=/payment-service/v3/api-docs/**
+          filters:
+            - RewritePath=/payment-service/v3/api-docs(?<segment>.*), /v3/api-docs${segment}
