@@ -4,8 +4,21 @@ server:
 spring:
   application:
     name: api-gateway
+  data:
+    redis:
+      url:
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
   cloud:
     gateway:
+      filter:
+        circuit-breaker:
+          enabled: true
       globalcors:
         cors-configurations:
           '[/**]':
@@ -32,6 +45,15 @@ spring:
             - Path=/iam-service/**
           filters:
             - StripPrefix=1
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@jwtUserKeyResolver}"
+                redis-rate-limiter.replenishRate: 1
+                redis-rate-limiter.burstCapacity: 20
+            - name: CircuitBreaker
+              args:
+                name: iamService
+                fallbackUri: forward:/fallback/iam
 
         - id: iam-service-swagger
           uri: lb://iam-service
