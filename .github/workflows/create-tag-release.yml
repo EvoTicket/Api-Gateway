@@ -1,0 +1,121 @@
+name: Create Tag and Release
+
+on:
+  push:
+    branches:
+      - 'release*'
+      - 'release/**'
+
+jobs:
+  create-tag-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract branch name and version
+        id: extract_info
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          
+          # Tạo version từ tên nhánh (ví dụ: release/v1.0.0 -> v1.0.0)
+          if [[ $BRANCH_NAME == release/* ]]; then
+            VERSION=${BRANCH_NAME#release/}
+          else
+            # Nếu chỉ là "release" hoặc "release-xxx", dùng timestamp
+            VERSION="v$(date +'%Y.%m.%d-%H%M%S')"
+          fi
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Version: $VERSION"
+
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          VERSION="${{ steps.extract_info.outputs.version }}"
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Tag $VERSION already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "✅ Tag $VERSION does not exist"
+          fi
+
+      - name: Create and push tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.extract_info.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git tag -a "$VERSION" -m "Release $VERSION from ${{ steps.extract_info.outputs.branch }}"
+          git push origin "$VERSION"
+          
+          echo "🏷️ Tag $VERSION created and pushed"
+
+      - name: Generate release notes
+        id: release_notes
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.extract_info.outputs.version }}"
+          BRANCH="${{ steps.extract_info.outputs.branch }}"
+          
+          # Lấy commit messages từ lần release trước
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          
+          if [ -z "$PREVIOUS_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"- %s (%h)" -10)
+          else
+            COMMITS=$(git log $PREVIOUS_TAG..HEAD --pretty=format:"- %s (%h)")
+          fi
+          
+          # Tạo release notes
+          cat << EOF > release_notes.md
+          ## 🚀 Release $VERSION
+          
+          **Branch:** \`$BRANCH\`
+          **Date:** $(date +'%Y-%m-%d %H:%M:%S')
+          
+          ### 📝 Changes
+          $COMMITS
+          
+          ### 🔗 Links
+          - [View diff](https://github.com/${{ github.repository }}/compare/$PREVIOUS_TAG...$VERSION)
+          - [Render Dashboard](https://dashboard.render.com)
+          EOF
+          
+          echo "Release notes generated"
+
+      - name: Create GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.extract_info.outputs.version }}
+          name: Release ${{ steps.extract_info.outputs.version }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          echo "### ✅ Release Created Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${{ steps.extract_info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ steps.extract_info.outputs.branch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** [View Tag](https://github.com/${{ github.repository }}/releases/tag/${{ steps.extract_info.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+
+      - name: Tag already exists
+        if: steps.check_tag.outputs.exists == 'true'
+        run: |
+          echo "### ⚠️ Tag Already Exists" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Tag ${{ steps.extract_info.outputs.version }} already exists. Skipping release creation." >> $GITHUB_STEP_SUMMARY
