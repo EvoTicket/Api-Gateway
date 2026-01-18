@@ -1,0 +1,55 @@
+name: Deploy to Render
+
+on:
+  push:
+    branches:
+      - 'release*'
+      - 'release/**'
+  create:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/heads/release')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract branch name
+        id: extract_branch
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "Deploying branch: $BRANCH_NAME"
+
+      - name: Trigger Render Deploy Hook
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "Error: RENDER_DEPLOY_HOOK_URL secret is not set"
+            exit 1
+          fi
+          
+          echo "Triggering deployment for branch: ${{ steps.extract_branch.outputs.branch }}"
+          
+          response=$(curl -s -w "\n%{http_code}" -X POST "$RENDER_DEPLOY_HOOK_URL")
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+          
+          echo "Response body: $body"
+          echo "HTTP Status: $http_code"
+          
+          if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+            echo "✅ Deploy triggered successfully!"
+          else
+            echo "❌ Deploy failed with status code: $http_code"
+            exit 1
+          fi
+
+      - name: Deployment Status
+        if: success()
+        run: |
+          echo "🚀 Deployment initiated for branch: ${{ steps.extract_branch.outputs.branch }}"
+          echo "Check Render dashboard for deployment progress"
