@@ -15,6 +15,7 @@ spring:
             allowedOrigins:
               - http://localhost:3000
               - ${FE_DOMAIN}
+              - https://api-evoticket.io.vn
             allowedMethods:
               - GET
               - POST
