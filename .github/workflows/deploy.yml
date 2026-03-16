@@ -143,10 +143,30 @@ jobs:
           port: ${{ secrets.VPS_PORT || 22 }}
           script: |
             cd ${{ secrets.VPS_DEPLOY_PATH || '~/app' }}
-            [ -f .env ] && cp .env .env.backup
-            chmod +x deploy.sh
-            # Script cần chạy với sudo nếu nginx reload cần quyền root
-            sudo ./deploy.sh ${{ needs.build-and-push.outputs.image_tag }}
+            
+            # Backup file .env hiện tại (nếu có)
+            if [ -f .env ]; then
+              cp .env .env.backup
+            fi
+            
+            # Update image tag trong docker-compose.yml
+            export IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
+            export DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_IMAGE_NAME }}
+            
+            # Pull image mới nhất
+            docker pull ${DOCKER_IMAGE}:${IMAGE_TAG}
+            
+            # Stop và remove container cũ
+            docker-compose down
+            
+            # Start với image mới
+            docker-compose up -d
+            
+            # Clean up old images (giữ lại 3 images gần nhất)
+            docker image prune -af --filter "until=72h"
+            
+            echo "✅ Deployment completed successfully!"
+            echo "🐳 Image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
 
       - name: Deployment Summary
         if: success()
