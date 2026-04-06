@@ -13,9 +13,27 @@ public class RedisRateLimiterConfig {
     @Primary
     public KeyResolver ipKeyResolver() {
         return exchange -> {
-            String ip = exchange.getRequest().getRemoteAddress() != null
-                    ? exchange.getRequest().getRemoteAddress().getAddress().getHostAddress()
-                    : "unknown";
+            var request = exchange.getRequest();
+
+            String ip = request.getHeaders().getFirst("X-Forwarded-For");
+
+            if (ip != null && ip.contains(",")) {
+                ip = ip.split(",")[0];
+            }
+
+            if (ip == null || ip.isEmpty()) {
+                ip = request.getHeaders().getFirst("X-Real-IP");
+            }
+
+            if (ip == null || ip.isEmpty()) {
+                if (request.getRemoteAddress() != null &&
+                        request.getRemoteAddress().getAddress() != null) {
+                    ip = request.getRemoteAddress().getAddress().getHostAddress();
+                } else {
+                    ip = "unknown";
+                }
+            }
+
             return Mono.just(ip);
         };
     }

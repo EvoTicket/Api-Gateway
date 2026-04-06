@@ -21,8 +21,8 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
-        String requestId = request.getHeaders().getFirst(REQUEST_ID_HEADER);
 
+        String requestId = request.getHeaders().getFirst(REQUEST_ID_HEADER);
         if (requestId == null || requestId.isEmpty()) {
             requestId = UUID.randomUUID().toString();
         }
@@ -37,21 +37,44 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
 
         long startTime = System.currentTimeMillis();
 
-        log.info("[{}] Request: {} {} from {}", finalRequestId, request.getMethod(), request.getURI(),
-                request.getRemoteAddress() != null ? request.getRemoteAddress().getAddress().getHostAddress() : "unknown");
+        String clientIp = request.getHeaders().getFirst("X-Forwarded-For");
+
+        if (clientIp != null && clientIp.contains(",")) {
+            clientIp = clientIp.split(",")[0];
+        }
+
+        if (clientIp == null || clientIp.isEmpty()) {
+            clientIp = request.getHeaders().getFirst("X-Real-IP");
+        }
+
+        if (clientIp == null || clientIp.isEmpty()) {
+            if (request.getRemoteAddress() != null &&
+                    request.getRemoteAddress().getAddress() != null) {
+                clientIp = request.getRemoteAddress().getAddress().getHostAddress();
+            } else {
+                clientIp = "unknown";
+            }
+        }
+
+        log.info("[{}] Request: {} {} from {}", finalRequestId,
+                request.getMethod(),
+                request.getURI(),
+                clientIp);
+
+        mutatedExchange.getResponse().beforeCommit(() -> {
+            mutatedExchange.getResponse().getHeaders().add(REQUEST_ID_HEADER, finalRequestId);
+            return Mono.empty();
+        });
 
         return chain.filter(mutatedExchange)
                 .doOnSuccess(aVoid -> {
                     ServerHttpResponse response = mutatedExchange.getResponse();
                     long duration = System.currentTimeMillis() - startTime;
 
-                    log.info("[{}] Response status: {} in {}ms", finalRequestId, response.getStatusCode(), duration);
-                })
-                .doOnSubscribe(sub -> {
-                    mutatedExchange.getResponse().beforeCommit(() -> {
-                        mutatedExchange.getResponse().getHeaders().add(REQUEST_ID_HEADER, finalRequestId);
-                        return Mono.empty();
-                    });
+                    log.info("[{}] Response status: {} in {}ms",
+                            finalRequestId,
+                            response.getStatusCode(),
+                            duration);
                 });
     }
 
