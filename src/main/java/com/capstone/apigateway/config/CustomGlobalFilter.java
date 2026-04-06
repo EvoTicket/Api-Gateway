@@ -20,6 +20,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+
         ServerHttpRequest request = exchange.getRequest();
 
         String requestId = request.getHeaders().getFirst(REQUEST_ID_HEADER);
@@ -33,7 +34,11 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
                 .header(REQUEST_ID_HEADER, finalRequestId)
                 .build();
 
-        ServerWebExchange mutatedExchange = exchange.mutate().request(mutatedRequest).build();
+        ServerWebExchange mutatedExchange = exchange.mutate()
+                .request(mutatedRequest)
+                .build();
+
+        mutatedExchange.getResponse().getHeaders().set(REQUEST_ID_HEADER, finalRequestId);
 
         long startTime = System.currentTimeMillis();
 
@@ -56,15 +61,12 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
             }
         }
 
-        log.info("[{}] Request: {} {} from {}", finalRequestId,
+        log.info("[{}] Request: {} {} from {}",
+                finalRequestId,
                 request.getMethod(),
                 request.getURI(),
-                clientIp);
-
-        mutatedExchange.getResponse().beforeCommit(() -> {
-            mutatedExchange.getResponse().getHeaders().add(REQUEST_ID_HEADER, finalRequestId);
-            return Mono.empty();
-        });
+                clientIp
+        );
 
         return chain.filter(mutatedExchange)
                 .doOnSuccess(aVoid -> {
@@ -74,12 +76,23 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
                     log.info("[{}] Response status: {} in {}ms",
                             finalRequestId,
                             response.getStatusCode(),
-                            duration);
+                            duration
+                    );
+                })
+                .doOnError(error -> {
+                    long duration = System.currentTimeMillis() - startTime;
+
+                    log.error("[{}] Error after {}ms: {}",
+                            finalRequestId,
+                            duration,
+                            error.getMessage(),
+                            error
+                    );
                 });
     }
 
     @Override
     public int getOrder() {
-        return -1;
+        return Ordered.HIGHEST_PRECEDENCE;
     }
 }
