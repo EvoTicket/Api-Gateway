@@ -38,7 +38,13 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
                 .request(mutatedRequest)
                 .build();
 
-        mutatedExchange.getResponse().getHeaders().set(REQUEST_ID_HEADER, finalRequestId);
+        mutatedExchange.getResponse().beforeCommit(() -> {
+            ServerHttpResponse response = mutatedExchange.getResponse();
+            if (!response.isCommitted()) {
+                response.getHeaders().set(REQUEST_ID_HEADER, finalRequestId);
+            }
+            return Mono.empty();
+        });
 
         long startTime = System.currentTimeMillis();
 
