@@ -4,11 +4,36 @@ server:
 spring:
   application:
     name: api-gateway
+  data:
+    redis:
+      url: ${REDIS_URL}
+      timeout: 5000
   cloud:
     gateway:
       filter:
         circuit-breaker:
           enabled: true
+      default-filters:
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter.replenishRate: 10
+            redis-rate-limiter.burstCapacity: 20
+            redis-rate-limiter.requestedTokens: 1
+            key-resolver: "#{@ipKeyResolver}"
+        - name: Retry
+          args:
+            retries: 3
+            statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+            methods: GET
+            backoff:
+              firstBackoff: 100ms
+              maxBackoff: 500ms
+              factor: 2
+              basedOnPreviousValue: true
+        - name: CircuitBreaker
+          args:
+            name: defaultCircuitBreaker
+            fallbackUri: forward:/fallback
       globalcors:
         cors-configurations:
           '[/**]':
@@ -113,7 +138,7 @@ springdoc:
   swagger-ui:
     enabled: true
     path: /swagger-ui.html
-    urls:
+    URLs:
       - name: IAM Service
         url: /iam-service/v3/api-docs
       - name: Inventory Service
@@ -125,3 +150,37 @@ springdoc:
       - name: Payment Service
         url: /payment-service/v3/api-docs
     urls-primary-name: IAM Service
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 10
+        permittedNumberOfCallsInHalfOpenState: 3
+        slidingWindowType: COUNT_BASED
+        minimumNumberOfCalls: 5
+        waitDurationInOpenState: 10s
+        failureRateThreshold: 50
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+    instances:
+      defaultCircuitBreaker:
+        baseConfig: default
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 3s
+    instances:
+      defaultCircuitBreaker:
+        baseConfig: default
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway,circuitbreakers
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: true
