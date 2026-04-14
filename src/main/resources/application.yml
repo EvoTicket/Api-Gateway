@@ -178,10 +178,12 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,gateway,circuitbreakers
+        include: health,info,metrics,gateway,circuitbreakers,prometheus
   endpoint:
     health:
       show-details: always
+    prometheus:
+        enabled: true
   health:
     redis:
       enabled: true
