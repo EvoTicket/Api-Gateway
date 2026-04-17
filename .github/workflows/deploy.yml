@@ -178,3 +178,35 @@ jobs:
           echo "- **Status:** Deployed to VPS" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "View logs: \`ssh ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} 'cd ${{ secrets.VPS_DEPLOY_PATH || '~/app' }} && docker-compose logs -f'\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify Discord (Final)
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          VERSION="${{ needs.build-and-push.outputs.version }}"
+          IMAGE="${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_IMAGE_NAME }}:${{ needs.build-and-push.outputs.image_tag }}"
+      
+          if [ "$STATUS" = "success" ]; then
+            TITLE="🚀 Deployment Successful"
+            COLOR=5763719
+          else
+            TITLE="❌ Deployment Failed"
+            COLOR=15548997
+          fi
+      
+          curl -H "Content-Type: application/json" \
+          -X POST \
+          -d "{
+            \"embeds\": [{
+              \"title\": \"$TITLE\",
+              \"color\": $COLOR,
+              \"fields\": [
+                {\"name\": \"Version\", \"value\": \"$VERSION\", \"inline\": true},
+                {\"name\": \"Image\", \"value\": \"$IMAGE\", \"inline\": false},
+                {\"name\": \"Status\", \"value\": \"$STATUS\", \"inline\": true}
+              ],
+              \"footer\": {\"text\": \"GitHub Actions\"},
+              \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+            }]
+          }" \
+          ${{ secrets.DISCORD_WEBHOOK_URL }}
