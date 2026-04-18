@@ -179,7 +179,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "View logs: \`ssh ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} 'cd ${{ secrets.VPS_DEPLOY_PATH || '~/app' }} && docker-compose logs -f'\`" >> $GITHUB_STEP_SUMMARY
 
-      - name: Notify Discord (Final)
+      - name: Notify Slack (Final)
         if: always()
         run: |
           STATUS="${{ job.status }}"
@@ -188,25 +188,26 @@ jobs:
       
           if [ "$STATUS" = "success" ]; then
             TITLE="🚀 Deployment Successful - API Gateway"
-            COLOR=5763719
+            COLOR="good"
           else
-            TITLE="❌ Deployment Failed - API-GATEWAY"
-            COLOR=15548997
+            TITLE="❌ Deployment Failed - API Gateway"
+            COLOR="danger"
           fi
       
-          curl -H "Content-Type: application/json" \
-          -X POST \
-          -d "{
-            \"embeds\": [{
-              \"title\": \"$TITLE\",
-              \"color\": $COLOR,
-              \"fields\": [
-                {\"name\": \"Version\", \"value\": \"$VERSION\", \"inline\": true},
-                {\"name\": \"Image\", \"value\": \"$IMAGE\", \"inline\": false},
-                {\"name\": \"Status\", \"value\": \"$STATUS\", \"inline\": true}
-              ],
-              \"footer\": {\"text\": \"GitHub Actions\"},
-              \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
-            }]
+          curl -X POST -H 'Content-type: application/json' \
+          --data "{
+            \"attachments\": [
+              {
+                \"color\": \"$COLOR\",
+                \"title\": \"$TITLE\",
+                \"fields\": [
+                  {\"title\": \"Version\", \"value\": \"$VERSION\", \"short\": true},
+                  {\"title\": \"Image\", \"value\": \"$IMAGE\", \"short\": false},
+                  {\"title\": \"Status\", \"value\": \"$STATUS\", \"short\": true}
+                ],
+                \"footer\": \"GitHub Actions\",
+                \"ts\": $(date +%s)
+              }
+            ]
           }" \
-          ${{ secrets.DISCORD_WEBHOOK_URL }}
+          ${{ secrets.SLACK_WEBHOOK_URL }}
