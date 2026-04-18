@@ -190,7 +190,7 @@ jobs:
             TITLE="🚀 Deployment Successful - API GATEWAY"
             COLOR="good"
           else
-            TITLE="❌ Deployment Failed - API Gateway"
+            TITLE="❌ Deployment Failed - API GATEWAY"
             COLOR="danger"
           fi
       
