@@ -122,6 +122,19 @@ spring:
             - Path=/payment-service/v3/api-docs/**
           filters:
             - RewritePath=/payment-service/v3/api-docs(?<segment>.*), /v3/api-docs${segment}
+        #######################################################################################
+        - id: checkin-service
+          uri: lb://checkin-service
+          predicates:
+            - Path=/checkin-service/**
+          filters:
+            - StripPrefix=1
+        - id: payment-service-swagger
+          uri: lb://checkin-service
+          predicates:
+            - Path=/checkin-service/v3/api-docs/**
+          filters:
+            - RewritePath=/checkin-service/v3/api-docs(?<segment>.*), /v3/api-docs${segment}
 
 eureka:
   client:
@@ -150,6 +163,8 @@ springdoc:
         url: /order-service/v3/api-docs
       - name: Payment Service
         url: /payment-service/v3/api-docs
+      - name: Checkin Service
+        url: /checkin-service/v3/api-docs
     urls-primary-name: IAM Service
 
 resilience4j:
