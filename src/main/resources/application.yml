@@ -129,7 +129,7 @@ spring:
             - Path=/checkin-service/**
           filters:
             - StripPrefix=1
-        - id: payment-service-swagger
+        - id: checkin-service-swagger
           uri: lb://checkin-service
           predicates:
             - Path=/checkin-service/v3/api-docs/**
